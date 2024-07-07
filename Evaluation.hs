@@ -43,7 +43,6 @@ beta s t = shift (-1) $ subst 0 (shift 1 s) t
 
 -- Eval Step
 evalStep :: Term -> Either String Term
--- Beta-reduction rule
 evalStep (TmApp (TmLam _ _ t12) v2) | isVal v2 = Right $ beta v2 t12
 evalStep (TmApp t1 t2)
   | isVal t1 = case evalStep t2 of
