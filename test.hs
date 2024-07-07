@@ -1,4 +1,4 @@
-import DeBruijn
+import Helpers
 
 data Ty =
     TyBool
@@ -86,7 +86,6 @@ subst j s t = f 0 t
 
 beta :: Term -> Term -> Term
 beta s t = shift (-1) $ subst 0 (shift 1 s) t
-
 
 -- Eval Step
 evalStep :: Term -> Either String Term
@@ -633,4 +632,4 @@ s2t_interpreter m f =
                    
 main = do putStr "Haskell interpreter of the simply typed lambda calculus.\n"
           putStr "Input -h for help, exit to terminate the program.\n"
-          s2t_interpreter s2t_static_mem t2s   
+          s2t_interpreter s2t_static_mem t2s

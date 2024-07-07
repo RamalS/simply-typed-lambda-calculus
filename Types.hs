@@ -4,6 +4,7 @@ data Ty =
     TyBool
     | TyArr Ty Ty
     | TyNat
+    | TyAny
     deriving (Show, Eq, Read)
 
 data Term =
@@ -22,6 +23,11 @@ data Term =
     | TmIf Term Term Term
     | TmVar Int
     | TmLam String Ty Term
-    | TmApp Term Term deriving (Show, Eq, Read)
+    | TmApp Term Term 
+    -- Logical operators
+    | TmAnd Term Term
+    | TmOr Term Term
+    | TmNot Term
+    deriving (Show, Eq, Read)
 
 type Context = [(String, Ty)]

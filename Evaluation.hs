@@ -1,4 +1,5 @@
----- TODO: Implement eq, ld, gd
+module Evaluation where
+    
 import Types
 import Helpers
 import TypeChecking
@@ -15,6 +16,9 @@ shift d t = f 0 t
         f c (TmPlus t1 t2) = TmPlus (f c t1) (f c t2)
         f c (TmEq t1 t2) = TmEq (f c t1) (f c t2)
         f c (TmLt t1 t2) = TmLt (f c t1) (f c t2)
+        f c (TmAnd t1 t2) = TmAnd (f c t1) (f c t2)
+        f c (TmOr t1 t2) = TmOr (f c t1) (f c t2)
+        f c (TmNot t1) = TmNot (f c t1)
         f _ t = t
 
 subst :: Int -> Term -> Term -> Term
@@ -29,11 +33,13 @@ subst j s t = f 0 t
         f c (TmPlus t1 t2) = TmPlus (f c t1) (f c t2)
         f c (TmEq t1 t2) = TmEq (f c t1) (f c t2)
         f c (TmLt t1 t2) = TmLt (f c t1) (f c t2)
+        f c (TmAnd t1 t2) = TmAnd (f c t1) (f c t2)
+        f c (TmOr t1 t2) = TmOr (f c t1) (f c t2)
+        f c (TmNot t1) = TmNot (f c t1)
         f _ t = t
 
 beta :: Term -> Term -> Term
 beta s t = shift (-1) $ subst 0 (shift 1 s) t
-
 
 -- Eval Step
 evalStep :: Term -> Either String Term
@@ -89,11 +95,15 @@ evalStep (TmEq TmZero TmZero) = Right TmTrue
 evalStep (TmEq (TmSucc _) TmZero) = Right TmFalse
 evalStep (TmEq TmZero (TmSucc _)) = Right TmFalse
 evalStep (TmEq (TmSucc t1) (TmSucc t2)) = Right $ TmEq t1 t2
+evalStep (TmEq TmTrue TmTrue) = Right TmTrue
+evalStep (TmEq TmFalse TmFalse) = Right TmTrue
+evalStep (TmEq TmTrue TmFalse) = Right TmFalse
+evalStep (TmEq TmFalse TmTrue) = Right TmFalse
 evalStep (TmEq t1 t2)
-    | not (isNumericVal t1) = do
+    | not $ isNumericVal t1 = do
         t1' <- evalStep t1
         Right $ TmEq t1' t2
-    | not (isNumericVal t2) = do
+    | not $ isNumericVal t2 = do
         t2' <- evalStep t2
         Right $ TmEq t1 t2'
 evalStep (TmEq _ _) = Right TmFalse
@@ -112,6 +122,25 @@ evalStep (TmLt t1 t2)
         Right $ TmLt t1 t2'
 evalStep (TmLt _ _) = Right TmFalse
 
+-- Logical operators
+evalStep (TmAnd TmTrue t2) = Right t2
+evalStep (TmAnd TmFalse _) = Right TmFalse
+evalStep (TmAnd t1 t2) = do
+    t1' <- evalStep t1
+    Right $ TmAnd t1' t2
+
+evalStep (TmOr TmTrue _) = Right TmTrue
+evalStep (TmOr TmFalse t2) = Right t2
+evalStep (TmOr t1 t2) = do
+    t1' <- evalStep t1
+    Right $ TmOr t1' t2
+
+evalStep (TmNot TmTrue) = Right TmFalse
+evalStep (TmNot TmFalse) = Right TmTrue
+evalStep (TmNot t) = do
+    t' <- evalStep t
+    Right $ TmNot t'
+
 evalStep t
   | isVal t = Right t
   | otherwise = Left "No rule applies"
@@ -123,17 +152,3 @@ eval ctx t = case typeOf ctx t of
     Right _ -> case evalStep t of
         Right t' -> if t' == t then Right t else eval ctx t'
         Left err -> Left $ "Evaluation error: " ++ err
-
--- Testing
-main :: IO ()
-main = do
-    let term = TmApp (TmLam "x" TyNat (TmPlus (TmVar 0) (TmSucc $ TmSucc TmZero))) (TmSucc TmZero)
-    print $ eval [] term
-
-    let testIf = TmApp (TmLam "x" TyBool (TmIf (TmVar 0) TmTrue TmFalse))
-
-    let addOneToNumber = TmApp (TmLam "x" TyBool (TmPlus (TmVar 0) (TmSucc TmZero)))
-    print $ eval [] (addOneToNumber (TmSucc TmZero))
-
-    let testEq = TmLt (TmSucc TmZero) (addOneToNumber (TmSucc TmZero))
-    print $ eval [] testEq

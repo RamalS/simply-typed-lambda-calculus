@@ -2,6 +2,7 @@ module TypeChecking where
 import Types
 import Helpers
 
+-- Type of
 typeOf :: Context -> Term -> Either String Ty
 typeOf ctx TmTrue = Right TyBool
 typeOf ctx TmFalse = Right TyBool
@@ -74,3 +75,24 @@ typeOf ctx (TmLt t1 t2) = do
   if tyT1 == TyNat && tyT2 == TyNat
     then Right TyBool
     else Left "Arguments of lt are not numbers"
+
+-- Logical operators
+typeOf ctx (TmAnd t1 t2) = do
+    tyT1 <- typeOf ctx t1
+    tyT2 <- typeOf ctx t2
+    if tyT1 == TyBool && tyT2 == TyBool
+        then Right TyBool
+        else Left "Arguments of and are not booleans"
+
+typeOf ctx (TmOr t1 t2) = do
+    tyT1 <- typeOf ctx t1
+    tyT2 <- typeOf ctx t2
+    if tyT1 == TyBool && tyT2 == TyBool
+        then Right TyBool
+        else Left "Arguments of or are not booleans"
+
+typeOf ctx (TmNot t1) = do
+    tyT1 <- typeOf ctx t1
+    if tyT1 == TyBool
+        then Right TyBool
+        else Left "Argument of not is not a boolean"
