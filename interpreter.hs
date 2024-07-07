@@ -30,7 +30,7 @@ s2t_idt :: String
 s2t_idt = ['a' .. 'z'] ++ ['0'..'9']
 
 nonIdentifiers :: [String]
-nonIdentifiers = ["true", "false", "zero", "succ", "plus", "if", "eq", "and", "or", "not", "iszero", "lt"]
+nonIdentifiers = ["true", "false", "zero", "succ", "plus", "if", "eq", "and", "or", "not", "iszero", "lt", "mul"]
 
 stringToType :: String -> Ty
 stringToType "bool" = TyBool
@@ -48,8 +48,8 @@ t2s (TmApp s t@(TmApp _ _)) = t2s s ++ " (" ++ t2s t ++ ")"
 t2s (TmApp s t@(TmLam {})) = t2s s ++ " (" ++ t2s t ++ ")"
 t2s (TmApp s@(TmLam {}) t) = "(" ++ t2s s ++ ") " ++ t2s t
 t2s (TmApp s t) = t2s s ++ " " ++ t2s t
-t2s s@(TmSucc t) = "c" ++ [intToChar(c2i s)]
-t2s p@(TmPred t) = "c" ++ [intToChar(c2i p)]
+t2s s@(TmSucc t) = "c" ++ show (c2i s)
+t2s p@(TmPred t) = "c" ++ show (c2i p)
 t2s TmZero = "zero"
 t2s TmTrue = "true"
 t2s TmFalse = "false"
@@ -178,6 +178,15 @@ s2t_interpret_plus m (("plus", "plus") : s) =
         _ -> ([], [])
     _ -> ([], [])
 
+s2t_interpret_mul :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_mul m (("mul", "mul") : s) =
+  case s2t_interpret_term m s of
+    ([t1], s1) ->
+      case s2t_interpret_term m s1 of
+        ([t2], s2) -> ([TmMul t1 t2], s2)
+        _ -> ([], [])
+    _ -> ([], [])
+
 s2t_interpret_eq :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
 s2t_interpret_eq m (("eq", "eq") : s) =
   case s2t_interpret_term m s of
@@ -249,6 +258,7 @@ s2t_interpret_term m s@((a, b) : _)
   | b == "zero" = s2t_interpret_zero m s
   | b == "succ" = s2t_interpret_succ m s
   | b == "plus" = s2t_interpret_plus m s
+  | b == "mul" = s2t_interpret_mul m s
   | b == "eq" = s2t_interpret_eq m s
   | b == "if" = s2t_interpret_if m s
   | b == "and" = s2t_interpret_and m s

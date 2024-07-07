@@ -14,7 +14,6 @@ intToChar n
   | n >= 0 && n <= 9 = chr (n + 48)
   | otherwise = error "Input is not a single digit"
 
-
 dbruj :: [Char] -> [Char] -> [Char] -> [Char]
 dbruj new llam [] = new
 dbruj new llam [b] = new ++ [b]

@@ -14,6 +14,7 @@ shift d t = f 0 t
         f c (TmPred t1) = TmPred (f c t1)
         f c (TmIsZero t1) = TmIsZero (f c t1)
         f c (TmPlus t1 t2) = TmPlus (f c t1) (f c t2)
+        f c (TmMul t1 t2) = TmMul (f c t1) (f c t2)
         f c (TmEq t1 t2) = TmEq (f c t1) (f c t2)
         f c (TmLt t1 t2) = TmLt (f c t1) (f c t2)
         f c (TmAnd t1 t2) = TmAnd (f c t1) (f c t2)
@@ -31,6 +32,7 @@ subst j s t = f 0 t
         f c (TmPred t1) = TmPred (f c t1)
         f c (TmIsZero t1) = TmIsZero (f c t1)
         f c (TmPlus t1 t2) = TmPlus (f c t1) (f c t2)
+        f c (TmMul t1 t2) = TmMul (f c t1) (f c t2)
         f c (TmEq t1 t2) = TmEq (f c t1) (f c t2)
         f c (TmLt t1 t2) = TmLt (f c t1) (f c t2)
         f c (TmAnd t1 t2) = TmAnd (f c t1) (f c t2)
@@ -87,6 +89,21 @@ evalStep (TmPlus t1 t2)
         Left err -> Left err
     | otherwise = case evalStep t1 of
         Right t1' -> Right $ TmPlus t1' t2
+        Left err -> Left err
+
+evalStep (TmMul TmZero _) = Right TmZero
+evalStep (TmMul (TmSucc t1) t2) = do
+    t1' <- evalStep t1
+    t2' <- evalStep t2
+    case evalStep (TmMul t1' t2') of
+      Right t' -> Right $ TmPlus t2' t'
+      Left err -> Left err
+evalStep (TmMul t1 t2)
+    | isVal t1 = case evalStep t2 of
+        Right t2' -> Right $ TmMul t1 t2'
+        Left err -> Left err
+    | otherwise = case evalStep t1 of
+        Right t1' -> Right $ TmMul t1' t2
         Left err -> Left err
 
 -- Equality

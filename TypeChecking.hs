@@ -96,3 +96,10 @@ typeOf ctx (TmNot t1) = do
     if tyT1 == TyBool
         then Right TyBool
         else Left "Argument of not is not a boolean"
+
+typeOf ctx (TmMul t1 t2) = do
+  tyT1 <- typeOf ctx t1
+  tyT2 <- typeOf ctx t2
+  if tyT1 == TyNat && tyT2 == TyNat
+    then Right TyNat
+    else Left "Arguments of mul are not numbers"

@@ -17,6 +17,7 @@ data Term =
     | TmPred Term
     | TmIsZero Term
     | TmPlus Term Term
+    | TmMul Term Term
     | TmEq Term Term
     | TmLt Term Term
     -- Conditionals
