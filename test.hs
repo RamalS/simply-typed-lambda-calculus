@@ -23,7 +23,12 @@ data Term =
     | TmIf Term Term Term
     | TmVar Int
     | TmLam String Ty Term
-    | TmApp Term Term deriving (Show, Eq, Read)
+    | TmApp Term Term 
+    -- Logical operators
+    | TmAnd Term Term
+    | TmOr Term Term
+    | TmNot Term
+    deriving (Show, Eq, Read)
 
 type Context = [(String, Ty)]
 
@@ -164,6 +169,25 @@ evalStep (TmLt t1 t2)
         Right $ TmLt t1 t2'
 evalStep (TmLt _ _) = Right TmFalse
 
+-- Logical operators
+evalStep (TmAnd TmTrue t2) = Right t2
+evalStep (TmAnd TmFalse _) = Right TmFalse
+evalStep (TmAnd t1 t2) = do
+    t1' <- evalStep t1
+    Right $ TmAnd t1' t2
+
+evalStep (TmOr TmTrue _) = Right TmTrue
+evalStep (TmOr TmFalse t2) = Right t2
+evalStep (TmOr t1 t2) = do
+    t1' <- evalStep t1
+    Right $ TmOr t1' t2
+
+evalStep (TmNot TmTrue) = Right TmFalse
+evalStep (TmNot TmFalse) = Right TmTrue
+evalStep (TmNot t) = do
+    t' <- evalStep t
+    Right $ TmNot t'
+
 evalStep t
   | isVal t = Right t
   | otherwise = Left "No rule applies"
@@ -242,6 +266,27 @@ typeOf ctx (TmLt t1 t2) = do
     then Right TyBool
     else Left "Arguments of lt are not numbers"
 
+-- Logical operators
+typeOf ctx (TmAnd t1 t2) = do
+    tyT1 <- typeOf ctx t1
+    tyT2 <- typeOf ctx t2
+    if tyT1 == TyBool && tyT2 == TyBool
+        then Right TyBool
+        else Left "Arguments of and are not booleans"
+
+typeOf ctx (TmOr t1 t2) = do
+    tyT1 <- typeOf ctx t1
+    tyT2 <- typeOf ctx t2
+    if tyT1 == TyBool && tyT2 == TyBool
+        then Right TyBool
+        else Left "Arguments of or are not booleans"
+
+typeOf ctx (TmNot t1) = do
+    tyT1 <- typeOf ctx t1
+    if tyT1 == TyBool
+        then Right TyBool
+        else Left "Argument of not is not a boolean"
+
 -- Eval
 eval :: Context -> Term -> Either String Term
 eval ctx t = case typeOf ctx t of
@@ -299,7 +344,7 @@ t2s TmFalse = "false"
 t2s (TmPlus s t) = "plus " ++ t2s s ++ " " ++ t2s t
 t2s (TmEq s t) = "eq " ++ t2s s ++ " " ++ t2s t
 
-nonIdentifiers = ["true", "false", "zero", "succ", "plus", "if", "eq"]
+nonIdentifiers = ["true", "false", "zero", "succ", "plus", "if", "eq", "and", "or", "not", "iszero", "lt"]
 
 s2t_static_mem :: [(String, Term)]
 s2t_static_mem = 
@@ -330,17 +375,11 @@ s2t_read_lam s
   where h = take l s
         l = length s2t_lam
 
-primjerLam = s2t_read_lam "\\x: bool.(plus 0 c2)"
-prvi = fst primjerLam
-
 extractVarAndType :: String -> (String, String)
 extractVarAndType s = (a, dropWhile (== ' ') $ drop 1 b)
   where (a, b) = span (/= ':') c
         c = init (drop 1 s)
 
-primjerExtract :: (String, String)
-primjerExtract = extractVarAndType prvi
- 
 
 s2t_read_idt :: String -> (String, String)
 s2t_read_idt s = f ("", s)
@@ -455,7 +494,51 @@ s2t_interpret_if m (("if", "if") : s) =
         _ -> ([], [])
     _ -> ([], [])
 
--- Main function to interpret a term
+-- Parse "and" followed by two terms
+s2t_interpret_and :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_and m (("and", "and") : s) =
+  case s2t_interpret_term m s of
+    ([t1], s1) ->
+      case s2t_interpret_term m s1 of
+        ([t2], s2) -> ([TmAnd t1 t2], s2)
+        _ -> ([], [])
+    _ -> ([], [])
+
+-- Parse "or" followed by two terms
+s2t_interpret_or :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_or m (("or", "or") : s) =
+  case s2t_interpret_term m s of
+    ([t1], s1) ->
+      case s2t_interpret_term m s1 of
+        ([t2], s2) -> ([TmOr t1 t2], s2)
+        _ -> ([], [])
+    _ -> ([], [])
+
+-- Parse "not" followed by a term
+s2t_interpret_not :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_not m (("not", "not") : s) =
+  case s2t_interpret_term m s of
+    ([t], s') -> ([TmNot t], s')
+    _ -> ([], [])
+
+-- Parse "iszero" followed by a term
+s2t_interpret_iszero :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_iszero m (("iszero", "iszero") : s) =
+  case s2t_interpret_term m s of
+    ([t], s') -> ([TmIsZero t], s')
+    _ -> ([], [])
+
+-- Parse "lt" followed by two terms
+s2t_interpret_lt :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
+s2t_interpret_lt m (("lt", "lt") : s) =
+  case s2t_interpret_term m s of
+    ([t1], s1) ->
+      case s2t_interpret_term m s1 of
+        ([t2], s2) -> ([TmLt t1 t2], s2)
+        _ -> ([], [])
+    _ -> ([], [])
+
+-- extend the main interpretation function
 s2t_interpret_term :: [(String, Term)] -> [(String, String)] -> ([Term], [(String, String)])
 s2t_interpret_term m s@((a, b) : _)
   | a == "(" && b == "sym" = s2t_interpret_grp m s
@@ -469,18 +552,17 @@ s2t_interpret_term m s@((a, b) : _)
   | b == "plus" = s2t_interpret_plus m s
   | b == "eq" = s2t_interpret_eq m s
   | b == "if" = s2t_interpret_if m s
+  | b == "and" = s2t_interpret_and m s
+  | b == "or" = s2t_interpret_or m s
+  | b == "not" = s2t_interpret_not m s
+  | b == "iszero" = s2t_interpret_iszero m s
+  | b == "lt" = s2t_interpret_lt m s
   | otherwise = ([], [])
-
--- Primjer
-primjer = s2t_interpret_term s2t_static_mem (s2t_tokenize "\\.(plus 0 c2)" [])
 
 s2t_interpret_assign :: [(String, Term)] -> [(String, String)] -> [(String, Term)]
 s2t_interpret_assign m ((a, "idt") : ("=", "sym") : t) = 
   if l == [] || s /= [] then [] else s2t_set_mem m a (head l)
   where (l, s) = s2t_interpret_term m (("(", "sym") : t ++ [(")", "sym")])
-
--- Primjer
-primjer2 = s2t_interpret_assign s2t_static_mem (s2t_tokenize "a = \\.(plus 0 c2)" [])
 
 s2t_interpreter :: [(String, Term)] -> (Term -> String) -> IO ()
 s2t_interpreter m f =
